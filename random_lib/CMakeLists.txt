@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(random_lib)
 
+if (WIN32)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif()
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

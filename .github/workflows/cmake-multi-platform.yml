@@ -20,12 +20,12 @@ jobs:
         include:
           # Windows
           - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
+            c_compiler: clang
+            cpp_compiler: clang++
             arch: x86
           - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
+            c_compiler: clang
+            cpp_compiler: clang++
             arch: x86_64
           # Ubuntu
           - os: ubuntu-latest
