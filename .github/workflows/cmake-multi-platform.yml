@@ -1,0 +1,92 @@
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Release, Debug]
+        arch: [x86, x86_64, arm64]
+        include:
+          # Windows
+          - os: windows-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: x86
+          - os: windows-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: x86_64
+          # Ubuntu
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: x86
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: x86_64
+          # macOS
+          - os: macos-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: x86_64
+          - os: macos-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            arch: arm64
+        exclude:
+          - os: ubuntu-latest
+            arch: arm64
+          - os: macos-latest
+            arch: x86
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Update submodules recursively
+      run: git submodule update --init --recursive
+
+    - name: Set reusable strings
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build/${{ matrix.os }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+        echo "artifact-name=build-${{ matrix.build_type }}-${{ matrix.os }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+
+    - name: Run prebuild-libs script
+      shell: pwsh
+      run: |
+        ./prebuild-libs.ps1 -ccomp "${{ matrix.c_compiler }}" `
+                    -cppcomp "${{ matrix.cpp_compiler }}" `
+                    -buildtype "${{ matrix.build_type }}" `
+                    -arch "${{ matrix.arch }}"
+
+    - name: Configure CMake
+      shell: pwsh
+      run: |
+        cmake -B ${{ steps.strings.outputs.build-output-dir }} `
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} `
+          -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.strings.outputs.artifact-name }}
+        path: ${{ steps.strings.outputs.build-output-dir }}
