@@ -15,6 +15,5 @@ int main()
 
     std::string randomHex = generator.getRandomHexBytes(32);
     std::cout << "Random hex string: " << randomHex << std::endl;
-    generator.saveKey("random.key");
     return 0;
 }
