@@ -55,13 +55,11 @@ void RandomGenerator::prng_seed_from_file(const std::string &password_filename)
 {
     std::vector<unsigned char> file_data;
 
-    // Проверка существования файла
     std::ifstream file(password_filename, std::ios::binary);
     if (!file)
     {
         std::cerr << "[INFO] File not found. Creating new file: " << password_filename << std::endl;
 
-        // Файл не существует, создаем новый файл с случайными данными
         std::ofstream new_file(password_filename, std::ios::binary);
         if (!new_file)
         {
@@ -69,18 +67,15 @@ void RandomGenerator::prng_seed_from_file(const std::string &password_filename)
             exit(1);
         }
 
-        // Генерация случайных данных
-        file_data.resize(256); // Размер данных для создания файла (например, 256 байт)
+        file_data.resize(256);
         get_random_bytes(file_data.data(), file_data.size());
 
-        // Записываем случайные данные в файл
         new_file.write(reinterpret_cast<char *>(file_data.data()), file_data.size());
         new_file.close();
         std::cerr << "[INFO] File created and populated with random data." << std::endl;
     }
     else
     {
-        // Если файл существует, читаем его содержимое
         file.seekg(0, std::ios::end);
         size_t file_size = file.tellg();
         file.seekg(0, std::ios::beg);
@@ -90,7 +85,6 @@ void RandomGenerator::prng_seed_from_file(const std::string &password_filename)
         std::cerr << "[INFO] Read " << file_size << " bytes from password file." << std::endl;
     }
 
-    // Используем байты из файла для инициализации генератора
     if (wc_RNG_GenerateBlock(&rng, file_data.data(), file_data.size()) != 0)
     {
         std::cerr << "[ERROR] Failed to seed RNG with file data" << std::endl;
@@ -119,7 +113,7 @@ int RandomGenerator::get_random_bytes(void *buf, int n)
 
 int RandomGenerator::bbs_init(int bits, const std::string &password_filename, int password_length)
 {
-    prng_seed_from_file(password_filename); // Инициализация с использованием данных из файла
+    prng_seed_from_file(password_filename);
     return 0;
 }
 
