@@ -8,7 +8,16 @@
 #include <ctime>
 #include <cstring>
 #include <fcntl.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <process.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#endif
+
 #include <wolfssl/wolfcrypt/random.h>
 #include <wolfssl/wolfcrypt/types.h>
 #include <wolfssl/wolfcrypt/error-crypt.h>
@@ -47,10 +56,8 @@ void RandomGenerator::prng_seed(const std::string &password_filename, int passwo
     {
         unsigned long long tsc;
 #ifdef _WIN32
-        asm volatile("rdtsc" : "=A"(tsc));
-#elif defined(__x86_64__)
-        asm volatile("rdtsc" : "=A"(tsc));
-#elif defined(__i386__)
+        tsc = GetTickCount64();
+#elif defined(__x86_64__) || defined(__i386__)
         asm volatile("rdtsc" : "=A"(tsc));
 #endif
         return tsc;
@@ -58,7 +65,13 @@ void RandomGenerator::prng_seed(const std::string &password_filename, int passwo
 
     struct timespec T;
 #ifdef _WIN32
-    timespec_get(&T, TIME_UTC);
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    ULARGE_INTEGER ul;
+    ul.LowPart = ft.dwLowDateTime;
+    ul.HighPart = ft.dwHighDateTime;
+    T.tv_sec = (ul.QuadPart - 116444736000000000LL) / 10000000;
+    T.tv_nsec = 0;
 #else
     assert(clock_gettime(CLOCK_REALTIME, &T) >= 0);
 #endif
@@ -70,6 +83,28 @@ void RandomGenerator::prng_seed(const std::string &password_filename, int passwo
     memcpy(a.data() + 16, &p, 2);
     int s = get_random_bytes(a.data() + 18, 32) + 18;
 
+#ifdef _WIN32
+    HANDLE hFile = CreateFile(password_filename.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        std::cerr << "Warning: fail to open password file - \"" << password_filename << "\", " << GetLastError() << "." << std::endl;
+    }
+    else
+    {
+        DWORD bytesRead;
+        ReadFile(hFile, a.data() + s, password_length, &bytesRead, NULL);
+        if (bytesRead == 0)
+        {
+            std::cerr << "Warning: fail to read password file - \"" << password_filename << "\", " << GetLastError() << "." << std::endl;
+        }
+        else
+        {
+            std::cerr << "read " << bytesRead << " bytes from password file." << std::endl;
+            s += bytesRead;
+        }
+        CloseHandle(hFile);
+    }
+#else
     int fd = open(password_filename.c_str(), O_RDONLY);
     if (fd < 0)
     {
@@ -89,6 +124,7 @@ void RandomGenerator::prng_seed(const std::string &password_filename, int passwo
         }
         close(fd);
     }
+#endif
 
     if (wc_RNG_GenerateBlock(&rng, a.data(), a.size()) != 0)
     {
